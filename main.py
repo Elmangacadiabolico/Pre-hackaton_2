@@ -1,10 +1,12 @@
 import pygame
 import random
 import sys
+import os
 
 def main():
     """
-    Juego simple de Pygame con un jugador que captura objetos.
+    Juego simple de Pygame con un jugador que captura objetos,
+    con carga opcional de imágenes y sistema de puntuación.
     """
     # Inicializa pygame
     pygame.init()
@@ -16,41 +18,65 @@ def main():
 
     # --- Colores ---
     BLANCO = (255, 255, 255)
+    NEGRO = (0, 0, 0)
     ROJO = (255, 0, 0)
     AZUL = (0, 0, 255)
-    VERDE_LIMA = (50, 205, 50) # Color para la animación de captura
+    VERDE_LIMA = (50, 205, 50)
+
+    # --- Carga de Imágenes (Opcional) ---
+    # Se intenta cargar imágenes. Si no se encuentran, se usan los rectángulos de color.
+    try:
+        # Obtiene la ruta absoluta del directorio del script
+        assets_path = os.path.join(os.path.dirname(__file__), 'assets', 'img')
+        
+        fondo_img = pygame.image.load(os.path.join(assets_path,'fondo.png')).convert()
+        fondo_img = pygame.transform.scale(fondo_img, (ANCHO, ALTO))
+    except (pygame.error, FileNotFoundError):
+        fondo_img = None
+
+    try:
+        assets_path = os.path.join(os.path.dirname(__file__), 'assets', 'img')
+        jugador_img = pygame.image.load(os.path.join(assets_path, 'Jugador.png')).convert_alpha()
+        jugador_img = pygame.transform.scale(jugador_img, (50, 60)) # Redimensionar la imagen del jugador
+    except (pygame.error, FileNotFoundError):
+        jugador_img = None
+
+    try:
+        assets_path = os.path.join(os.path.dirname(__file__), 'assets', 'img')
+        objeto_img = pygame.image.load(os.path.join(assets_path, 'Objeto.jpg')).convert_alpha()
+        objeto_img = pygame.transform.scale(objeto_img, (30, 30)) # Redimensionar la imagen del objeto
+    except (pygame.error, FileNotFoundError):
+        objeto_img = None
 
     # --- Jugador ---
-    # Se crea un rectángulo para el jugador en lugar de cargar una imagen
     jugador_ancho, jugador_alto = 50, 50
-    # pygame.Rect(pos_x, pos_y, ancho, alto)
+    if jugador_img:
+        jugador_ancho, jugador_alto = jugador_img.get_size()
     jugador_rect = pygame.Rect(ANCHO // 2 - jugador_ancho // 2, ALTO - jugador_alto - 10, jugador_ancho, jugador_alto)
     jugador_color = ROJO
     jugador_velocidad = 7
 
-    # --- Objeto ---
-    # Se crea un rectángulo para el objeto
     objeto_ancho, objeto_alto = 30, 30
+    if objeto_img:
+        objeto_ancho, objeto_alto = objeto_img.get_size()
     objeto_rect = pygame.Rect(random.randint(0, ANCHO - objeto_ancho), 0, objeto_ancho, objeto_alto)
     objeto_velocidad = 5
 
-    # --- Animación de Captura ---
-    # Contador para controlar la duración del cambio de color
+    score = 0
+
+    fuente = pygame.font.Font(None, 36)
+
+
     animacion_captura_contador = 0
 
-    # --- Control de FPS y Bucle Principal ---
     clock = pygame.time.Clock()
     ejecutando = True
 
-    # --- Bucle del Juego ---
     while ejecutando:
-        # --- Manejo de Eventos ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 ejecutando = False
-
-        # --- Movimiento del Jugador ---
-        # Captura las teclas presionadas
+                
         teclas = pygame.key.get_pressed()
         if teclas[pygame.K_LEFT] and jugador_rect.left > 0:
             jugador_rect.x -= jugador_velocidad
@@ -61,22 +87,17 @@ def main():
         if teclas[pygame.K_DOWN] and jugador_rect.bottom < ALTO:
             jugador_rect.y += jugador_velocidad
 
-        # --- Lógica del Juego ---
-        # Mover el objeto hacia abajo
+
         objeto_rect.y += objeto_velocidad
-        # Si el objeto sale de la pantalla, reposicionarlo arriba
         if objeto_rect.top > ALTO:
             objeto_rect.y = -objeto_alto
             objeto_rect.x = random.randint(0, ANCHO - objeto_ancho)
 
-        # --- Detección de Colisiones ---
-        # Comprueba si el rectángulo del jugador colisiona con el del objeto
-        if jugador_rect.colliderect(objeto_rect):
-            # Inicia la animación de captura
-            jugador_color = VERDE_LIMA
-            animacion_captura_contador = 10 # Duración de 10 frames
 
-            # Reposiciona el objeto en la parte superior en un lugar aleatorio
+        if jugador_rect.colliderect(objeto_rect):
+            score += 1 # Aumentar puntuación
+            jugador_color = VERDE_LIMA
+            animacion_captura_contador = 10
             objeto_rect.y = -objeto_alto
             objeto_rect.x = random.randint(0, ANCHO - objeto_ancho)
 
@@ -84,24 +105,36 @@ def main():
         if animacion_captura_contador > 0:
             animacion_captura_contador -= 1
         else:
-            # Restaura el color original del jugador
             jugador_color = ROJO
 
         # --- Dibujado en Pantalla ---
-        # 1. Rellenar el fondo de color blanco
-        pantalla.fill(BLANCO)
+        # Fondo
+        if fondo_img:
+            pantalla.blit(fondo_img, (0, 0))
+        else:
+            pantalla.fill(BLANCO)
 
-        # 2. Dibujar el jugador
-        pygame.draw.rect(pantalla, jugador_color, jugador_rect)
+        # Jugador
+        if jugador_img:
+            pantalla.blit(jugador_img, jugador_rect.topleft)
+        else:
+            # Solo dibuja el rectángulo con color si no hay imagen
+            pygame.draw.rect(pantalla, jugador_color, jugador_rect)
 
-        # 3. Dibujar el objeto
-        pygame.draw.rect(pantalla, AZUL, objeto_rect)
+        # Objeto
+        if objeto_img:
+            pantalla.blit(objeto_img, objeto_rect.topleft)
+        else:
+            pygame.draw.rect(pantalla, AZUL, objeto_rect)
+
+        # Puntuación
+        texto_score = fuente.render(f"Score: {score}", True, NEGRO)
+        pantalla.blit(texto_score, (10, 10))
 
         # --- Actualizar la Pantalla ---
         pygame.display.flip()
 
         # --- Controlar FPS ---
-        # Limita el bucle a 60 fotogramas por segundo
         clock.tick(60)
 
     # --- Fin de Pygame ---
